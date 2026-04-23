@@ -1,0 +1,361 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+-- 游戏本体检测
+local targetGameId = 6756738846
+local targetPlaceId = 77261596213273
+
+if game.GameId ~= targetGameId or game.PlaceId ~= targetPlaceId then
+    Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
+    return
+end
+
+Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏", Duration = 3 })
+
+-- 先创建一个隐藏的窗口，用于弹出确认对话框
+local Window = Fluent:CreateWindow({
+    Title = "Fluent " .. Fluent.Version,
+    SubTitle = "by dawid",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 640),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+Window.Visible = false  -- 初始隐藏，直到用户确认才显示
+
+-- 弹出确认对话框
+Window:Dialog({
+    Title = "加载确认",
+    Content = "你确定要加载脚本吗？",
+    Buttons = {
+        {
+            Title = "确定",
+            Callback = function()
+                -- 显示窗口
+                Window.Visible = true
+
+                local Tabs = {
+                    Main = Window:AddTab({ Title = "主页", Icon = "" }),
+                    Other = Window:AddTab({ Title = "其他", Icon = "" }),
+                    Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
+                }
+
+                local Players = game:GetService("Players")
+                local player = Players.LocalPlayer
+
+                -- 公告
+                local ANNOUNCEMENT = [[
+欢迎使用多功能脚本！
+新功能：删门/传送/速度/自动健身/飞天
+以后会开发很多的现在是测试版
+QQ:53662370
+没有微信
+]]
+
+                -- 删除门
+                local function deleteDoor(partialPath)
+                    local parts = {}
+                    for part in string.gmatch(partialPath, "[^/]+") do table.insert(parts, part) end
+                    local current = workspace
+                    for _, name in ipairs(parts) do
+                        current = current:FindFirstChild(name)
+                        if not current then
+                            Fluent:Notify({ Title = "错误", Content = "目标不存在", Duration = 3 })
+                            return
+                        end
+                    end
+                    current:Destroy()
+                    Fluent:Notify({ Title = "完成", Content = "已删除", Duration = 3 })
+                end
+
+                -- 传送
+                local function teleportTo(path)
+                    local parts = {}
+                    for part in string.gmatch(path, "[^/]+") do table.insert(parts, part) end
+                    local current = workspace
+                    for _, name in ipairs(parts) do
+                        current = current:FindFirstChild(name)
+                        if not current then
+                            Fluent:Notify({ Title = "传送失败", Content = "找不到传送点", Duration = 3 })
+                            return
+                        end
+                    end
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = current.CFrame + Vector3.new(0, 5, 0)
+                    else
+                        Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 3 })
+                    end
+                end
+
+                -- 头顶名字头像
+                local function createNameTag(character)
+                    local targetPlayer = Players:GetPlayerFromCharacter(character)
+                    if not targetPlayer or targetPlayer == player then return end
+                    local head = character:WaitForChild("Head", 5)
+                    if not head then return end
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "PlayerNameAvatar"
+                    billboard.AlwaysOnTop = true
+                    billboard.Size = UDim2.new(0, 150, 0, 60)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.Parent = head
+                    local avatarFrame = Instance.new("ImageLabel")
+                    avatarFrame.Size = UDim2.new(0, 40, 0, 40)
+                    avatarFrame.Position = UDim2.new(0, 0, 0.5, -20)
+                    avatarFrame.BackgroundTransparency = 1
+                    avatarFrame.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. targetPlayer.UserId .. "&width=420&height=420&format=png"
+                    avatarFrame.Parent = billboard
+                    local nameLabel = Instance.new("TextLabel")
+                    nameLabel.Size = UDim2.new(0, 100, 1, 0)
+                    nameLabel.Position = UDim2.new(0, 45, 0, 0)
+                    nameLabel.BackgroundTransparency = 1
+                    nameLabel.Text = targetPlayer.Name
+                    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+                    nameLabel.TextScaled = true
+                    nameLabel.Font = Enum.Font.GothamBlack
+                    nameLabel.Parent = billboard
+                end
+
+                for _, plr in pairs(Players:GetPlayers()) do
+                    if plr ~= player then
+                        if plr.Character then task.spawn(createNameTag, plr.Character) end
+                        plr.CharacterAdded:Connect(createNameTag)
+                    end
+                end
+                Players.PlayerAdded:Connect(function(plr)
+                    plr.CharacterAdded:Connect(function(char)
+                        if plr ~= player then createNameTag(char) end
+                    end)
+                end)
+
+                -- 速度修改（循环保持）
+                local speedEnabled = false
+                local speedValue = 16
+                local speedButton = nil
+                local speedLoop = nil
+
+                local function applySpeed(val)
+                    local char = player.Character
+                    if char then
+                        local humanoid = char:FindFirstChild("Humanoid")
+                        if humanoid then humanoid.WalkSpeed = val end
+                    end
+                end
+
+                local function startSpeedLoop()
+                    if speedLoop then task.cancel(speedLoop); speedLoop = nil end
+                    speedLoop = task.spawn(function()
+                        while true do
+                            applySpeed(speedValue)
+                            task.wait(0.2)
+                        end
+                    end)
+                end
+
+                local function stopSpeedLoop()
+                    if speedLoop then
+                        task.cancel(speedLoop)
+                        speedLoop = nil
+                    end
+                    applySpeed(16)
+                end
+
+                player.CharacterAdded:Connect(function()
+                    if speedEnabled then startSpeedLoop() else applySpeed(16) end
+                end)
+
+                local function toggleSpeed()
+                    speedEnabled = not speedEnabled
+                    if speedEnabled then
+                        startSpeedLoop()
+                        if speedButton then speedButton:SetTitle("速度修改：开") end
+                        Fluent:Notify({ Title = "速度修改", Content = "已开启（循环保持）", Duration = 2 })
+                    else
+                        stopSpeedLoop()
+                        if speedButton then speedButton:SetTitle("速度修改：关") end
+                        Fluent:Notify({ Title = "速度修改", Content = "已关闭，恢复默认速度", Duration = 2 })
+                    end
+                end
+
+                local function onSpeedSliderChange(value)
+                    speedValue = value
+                end
+
+                -- 自动健身
+                local fitnessLoop = nil
+                local fitnessState = false
+                local fitnessButton = nil
+
+                local function startFitnessLoop(sendValue)
+                    if fitnessLoop then task.cancel(fitnessLoop); fitnessLoop = nil end
+                    local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+                    if not AutoDamage then
+                        Fluent:Notify({ Title = "错误", Content = "请在支持的游戏上开启", Duration = 3 })
+                        return
+                    end
+                    fitnessLoop = task.spawn(function()
+                        while true do
+                            pcall(function() AutoDamage:FireServer(sendValue) end)
+                            task.wait(0.5)
+                        end
+                    end)
+                    if fitnessButton then fitnessButton:SetTitle(sendValue and "自动健身：开" or "自动健身：关") end
+                end
+
+                local function toggleFitness()
+                    if fitnessState then
+                        fitnessState = false
+                        startFitnessLoop(false)
+                        Fluent:Notify({ Title = "自动健身", Content = "已切换为关", Duration = 2 })
+                    else
+                        fitnessState = true
+                        startFitnessLoop(true)
+                        Fluent:Notify({ Title = "自动健身", Content = "已切换为开", Duration = 2 })
+                    end
+                end
+
+                -- 自动健身2.0
+                local fly2Loop = nil
+                local fly2State = false
+                local fly2Button = nil
+                local FLY2_HEIGHT = 150
+                local originalCFrame = nil
+
+                local function startFly2()
+                    if fly2Loop then task.cancel(fly2Loop); fly2Loop = nil end
+                    local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+                    if not AutoDamage then
+                        Fluent:Notify({ Title = "错误", Content = "请在支持的游戏上开启", Duration = 3 })
+                        return
+                    end
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        originalCFrame = char.HumanoidRootPart.CFrame
+                    end
+                    fly2Loop = task.spawn(function()
+                        while true do
+                            pcall(function() AutoDamage:FireServer(true) end)
+                            pcall(function()
+                                local char = player.Character
+                                if char and char:FindFirstChild("HumanoidRootPart") then
+                                    local hrp = char.HumanoidRootPart
+                                    hrp.CFrame = CFrame.new(Vector3.new(hrp.Position.X, FLY2_HEIGHT, hrp.Position.Z))
+                                    hrp.AssemblyLinearVelocity = Vector3.zero
+                                end
+                            end)
+                            task.wait(0.05)
+                        end
+                    end)
+                    if fly2Button then fly2Button:SetTitle("健身2.0：开") end
+                end
+
+                local function stopFly2()
+                    if fly2Loop then
+                        task.cancel(fly2Loop)
+                        fly2Loop = nil
+                    end
+                    pcall(function()
+                        local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+                        if AutoDamage then AutoDamage:FireServer(false) end
+                    end)
+                    if originalCFrame then
+                        local char = player.Character
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            char.HumanoidRootPart.CFrame = originalCFrame
+                            originalCFrame = nil
+                        end
+                    end
+                    if fly2Button then fly2Button:SetTitle("健身2.0：关") end
+                end
+
+                local function toggleFly2()
+                    if fly2State then
+                        fly2State = false
+                        stopFly2()
+                        Fluent:Notify({ Title = "健身2.0", Content = "已关闭，传送回原地", Duration = 2 })
+                    else
+                        fly2State = true
+                        startFly2()
+                        Fluent:Notify({ Title = "健身2.0", Content = "已开启，飞天+AutoDamage", Duration = 2 })
+                    end
+                end
+
+                -- 填充 UI
+                Fluent:Notify({ Title = "通知", Content = "脚本已加载", Duration = 5 })
+
+                Tabs.Main:AddParagraph({ Title = "📢 公告", Content = ANNOUNCEMENT })
+                Tabs.Main:AddParagraph({ Title = "门控制", Content = "点击按钮永久删除对应的门。" })
+                Tabs.Main:AddButton({ Title = "删除 VIP", Callback = function() deleteDoor("VIP/VIPDoor") end })
+                Tabs.Main:AddButton({ Title = "删除订阅", Callback = function() deleteDoor("Subscription/SubscriptionDoor") end })
+
+                Tabs.Main:AddParagraph({ Title = "传送", Content = "点击下方世界名称即可传送。" })
+                local teleportList = {
+                    { Name = "🌍 地球", Path = "Teleporters/Locations/World1" },
+                    { Name = "🌕 月球", Path = "Teleporters/Locations/World2" },
+                    { Name = "🌋 熔岩", Path = "Teleporters/Locations/World3" },
+                    { Name = "❄️ 冰", Path = "Teleporters/Locations/World4" },
+                    { Name = "🌸 花朵", Path = "Teleporters/Locations/World5" },
+                    { Name = "⛄ 雪", Path = "Teleporters/Locations/World6" },
+                    { Name = "🌑 黑暗", Path = "Teleporters/Locations/World7" },
+                    { Name = "🕳️ 虚空", Path = "Teleporters/Locations/World8" },
+                    { Name = "🏜️ 沙漠", Path = "Teleporters/Locations/World9" },
+                    { Name = "🌳 森林", Path = "Teleporters/Locations/World10" },
+                    { Name = "🍬 糖果", Path = "Teleporters/Locations/World11" },
+                    { Name = "⚙️ 蒸汽朋克", Path = "Teleporters/Locations/World12" },
+                    { Name = "🏖️ 海滩", Path = "Teleporters/Locations/World13" },
+                    { Name = "☁️ 天堂", Path = "Teleporters/Locations/World14" },
+                }
+                for _, world in ipairs(teleportList) do
+                    Tabs.Main:AddButton({ Title = world.Name, Callback = function() teleportTo(world.Path) end })
+                end
+
+                Tabs.Main:AddParagraph({ Title = "自动健身", Content = "发送 AutoDamage true/false" })
+                fitnessButton = Tabs.Main:AddButton({ Title = "自动健身：关", Callback = function() toggleFitness() end })
+
+                Tabs.Main:AddParagraph({ Title = "自动健身2.0", Content = "飞天 + AutoDamage，关闭回原地" })
+                fly2Button = Tabs.Main:AddButton({ Title = "健身2.0：关", Callback = function() toggleFly2() end })
+
+                Tabs.Other:AddParagraph({ Title = "速度修改", Content = "点击按钮开启/关闭速度调整（循环保持）" })
+                speedButton = Tabs.Other:AddButton({ Title = "速度修改：关", Callback = function() toggleSpeed() end })
+                Tabs.Other:AddSlider("SpeedSlider", {
+                    Title = "移动速度",
+                    Description = "0 ~ 400",
+                    Default = 16,
+                    Min = 0,
+                    Max = 400,
+                    Rounding = 0,
+                    Callback = function(value) onSpeedSliderChange(value) end
+                })
+
+                -- Addons
+                SaveManager:SetLibrary(Fluent)
+                InterfaceManager:SetLibrary(Fluent)
+                SaveManager:IgnoreThemeSettings()
+                SaveManager:SetIgnoreIndexes({})
+                InterfaceManager:SetFolder("FluentScriptHub")
+                SaveManager:SetFolder("FluentScriptHub/specific-game")
+                InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+                SaveManager:BuildConfigSection(Tabs.Settings)
+
+                Window:SelectTab(1)
+
+                Fluent:Notify({
+                    Title = "Fluent",
+                    Content = "脚本已就绪 - 公告/传送/删门/速度/健身",
+                    Duration = 8
+                })
+
+                SaveManager:LoadAutoloadConfig()
+            end
+        },
+        {
+            Title = "不确定",
+            Callback = function()
+                Window:Destroy()
+            end
+        }
+    }
+})
