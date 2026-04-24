@@ -6,8 +6,13 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 local targetGameId = 6756738846
 local targetPlaceId = 77261596213273
 
+-- 如果是游戏2则直接退出（不提示，不加载 UI）
+if game.GameId == 210851291 and game.PlaceId == 537413528 then
+    return
+end
+
 if game.GameId ~= targetGameId or game.PlaceId ~= targetPlaceId then
-    Fluent:Notify({ Title = "错误", Content = "不支持当前游戏如果是别的支持的游戏的话你就不用管这个提示", Duration = 5 })
+    Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
     return
 end
 
