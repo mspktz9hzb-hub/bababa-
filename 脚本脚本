@@ -10,9 +10,21 @@ local isGame1 = (gameId == 6756738846 and placeId == 77261596213273)
 local isGame2 = (gameId == 210851291 and placeId == 537413528)
 local isGame3 = (gameId == 5677613211 and placeId == 16480898254)
 
--- 如果不是有效游戏，弹出错误通知和公告窗口
+-- 如果不是有效游戏，弹出错误通知和公告窗口（带背景模糊）
 if not isGame1 and not isGame2 and not isGame3 then
     Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
+
+    -- 创建全屏模糊背景
+    local blur = Instance.new("Frame")
+    blur.Size = UDim2.new(1, 0, 1, 0)
+    blur.Position = UDim2.new(0, 0, 0, 0)
+    blur.BackgroundColor3 = Color3.new(0, 0, 0)
+    blur.BackgroundTransparency = 0.5
+    blur.BorderSizePixel = 0
+    blur.ZIndex = 0
+    blur.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    -- 创建公告窗口
     local infoWindow = Fluent:CreateWindow({
         Title = "脚本公告",
         SubTitle = "当前游戏不在支持列表",
@@ -37,6 +49,17 @@ if not isGame1 and not isGame2 and not isGame3 then
         ]]
     })
     infoWindow:SelectTab(1)
+
+    -- 监听窗口关闭，自动移除模糊背景
+    task.spawn(function()
+        while infoWindow and infoWindow.Parent do
+            task.wait(0.5)
+        end
+        if blur then
+            blur:Destroy()
+        end
+    end)
+
     return
 end
 
@@ -82,7 +105,7 @@ else
     })
 end
 
--- 通用随机传送函数
+-- 通用随机传送函数（游戏1不再调用，但保留以防其他用途）
 local function getRandomTeleportPosition()
     local MIN_X, MAX_X = -200, 200
     local MIN_Z, MAX_Z = -200, 200
@@ -104,7 +127,7 @@ local function randomTeleport()
 end
 
 -- =====================
--- 游戏1 全部功能
+-- 游戏1 全部功能（已恢复传送列表，删除随机传送）
 -- =====================
 if isGame1 then
     local Tabs = {
@@ -388,8 +411,6 @@ QQ:53662370
         Rounding = 0,
         Callback = function(value) onSpeedSliderChange(value) end
     })
-    Tabs.Other:AddParagraph({ Title = "随机传送", Content = "传送到地图中心附近 ±200 范围" })
-    Tabs.Other:AddButton({ Title = "随机传送", Callback = randomTeleport })
 
     SaveManager:SetLibrary(Fluent)
     InterfaceManager:SetLibrary(Fluent)
