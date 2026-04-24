@@ -363,8 +363,6 @@ QQ:53662370
         Rounding = 0,
         Callback = function(value) onSpeedSliderChange(value) end
     })
-    Tabs.Other:AddParagraph({ Title = "随机传送", Content = "传送到地图中心附近 ±200 范围" })
-    Tabs.Other:AddButton({ Title = "随机传送", Callback = randomTeleport })
 
     SaveManager:SetLibrary(Fluent)
     InterfaceManager:SetLibrary(Fluent)
