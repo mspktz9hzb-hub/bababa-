@@ -8,21 +8,22 @@ local gameId = game.GameId
 local placeId = game.PlaceId
 local isGame1 = (gameId == 6756738846 and placeId == 77261596213273)
 local isGame2 = (gameId == 210851291 and placeId == 537413528)
+local isGame3 = (gameId == 5677613211 and placeId == 16480898254)
 
--- 如果不是有效游戏则提示并退出
-if not isGame1 and not isGame2 then
+if not isGame1 and not isGame2 and not isGame3 then
     Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
     return
 end
 
--- 提示支持
 if isGame1 then
     Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（点击+1力量）", Duration = 3 })
-else
+elseif isGame2 then
     Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（造船寻宝）", Duration = 3 })
+else
+    Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（吃吃世界）", Duration = 3 })
 end
 
--- 创建窗口（根据游戏不同外观）
+-- 创建窗口
 local Window
 if isGame1 then
     Window = Fluent:CreateWindow({
@@ -34,16 +35,47 @@ if isGame1 then
         Theme = "Dark",
         MinimizeKey = Enum.KeyCode.LeftControl
     })
-else
+elseif isGame2 then
     Window = Fluent:CreateWindow({
         Title = "造船寻宝",
-        SubTitle = "循环平飞系统",
+        SubTitle = "停3秒 | 最后额外停12秒",
         TabWidth = 160,
         Size = UDim2.fromOffset(480, 280),
         Acrylic = true,
         Theme = "Dark",
         MinimizeKey = Enum.KeyCode.LeftControl
     })
+else
+    Window = Fluent:CreateWindow({
+        Title = "吃吃世界",
+        SubTitle = "自动传送 · 拿 · 吃 · 反虚空 · 速度",
+        TabWidth = 160,
+        Size = UDim2.fromOffset(440, 430),
+        Acrylic = true,
+        Theme = "Dark",
+        MinimizeKey = Enum.KeyCode.LeftControl
+    })
+end
+
+-- 通用随机传送函数（游戏1和游戏3内部使用）
+local function getRandomTeleportPosition()
+    local MIN_X, MAX_X = -200, 200
+    local MIN_Z, MAX_Z = -200, 200
+    local TELEPORT_Y = 50
+    local randX = math.random(MIN_X * 100, MAX_X * 100) / 100
+    local randZ = math.random(MIN_Z * 100, MAX_Z * 100) / 100
+    return Vector3.new(randX, TELEPORT_Y, randZ)
+end
+
+local function randomTeleport()
+    local char = game.Players.LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        Fluent:Notify({ Title = "错误", Content = "角色未加载", Duration = 3 })
+        return
+    end
+    local target = getRandomTeleportPosition()
+    char.HumanoidRootPart.CFrame = CFrame.new(target)
+    Fluent:Notify({ Title = "传送", Content = string.format("已传送到 (%.1f, %.1f, %.1f)", target.X, target.Y, target.Z), Duration = 4 })
 end
 
 -- =====================
@@ -59,16 +91,13 @@ if isGame1 then
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer
 
-    -- 公告
     local ANNOUNCEMENT = [[
 欢迎使用多功能脚本！
-新功能：删门/传送/速度/自动健身/飞天
-以后会开发很多的现在是测试版
+新功能：删门/传送/速度/自动健身/飞天/随机传送
 QQ:53662370
 没有微信
 ]]
 
-    -- 删除门
     local function deleteDoor(partialPath)
         local parts = {}
         for part in string.gmatch(partialPath, "[^/]+") do table.insert(parts, part) end
@@ -84,7 +113,6 @@ QQ:53662370
         Fluent:Notify({ Title = "完成", Content = "已删除", Duration = 3 })
     end
 
-    -- 传送
     local function teleportTo(path)
         local parts = {}
         for part in string.gmatch(path, "[^/]+") do table.insert(parts, part) end
@@ -104,7 +132,6 @@ QQ:53662370
         end
     end
 
-    -- 头顶名字头像
     local function createNameTag(character)
         local targetPlayer = Players:GetPlayerFromCharacter(character)
         if not targetPlayer or targetPlayer == player then return end
@@ -145,7 +172,6 @@ QQ:53662370
         end)
     end)
 
-    -- 速度修改（循环保持）
     local speedEnabled = false
     local speedValue = 16
     local speedButton = nil
@@ -198,26 +224,6 @@ QQ:53662370
         speedValue = value
     end
 
-    -- 新增：点击+1力量
-    local clickCount = 0
-    local clickButton = nil
-
-    local function addPower()
-        local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
-        if not AutoDamage then
-            Fluent:Notify({ Title = "错误", Content = "AutoDamage 事件不存在", Duration = 3 })
-            return
-        end
-        pcall(function()
-            AutoDamage:FireServer(true)
-        end)
-        clickCount = clickCount + 1
-        if clickButton then
-            clickButton:SetTitle("点击+1力量 [已点 " .. clickCount .. " 次]")
-        end
-    end
-
-    -- 自动健身（原版）
     local fitnessLoop = nil
     local fitnessState = false
     local fitnessButton = nil
@@ -250,7 +256,6 @@ QQ:53662370
         end
     end
 
-    -- 自动健身2.0
     local fly2Loop = nil
     local fly2State = false
     local fly2Button = nil
@@ -316,24 +321,12 @@ QQ:53662370
         end
     end
 
-    -- 填充 UI
     Fluent:Notify({ Title = "通知", Content = "脚本已加载", Duration = 5 })
 
     Tabs.Main:AddParagraph({ Title = "📢 公告", Content = ANNOUNCEMENT })
-
-    -- 点击+1力量按钮
-    Tabs.Main:AddParagraph({ Title = "力量", Content = "每点击一次按钮，触发一次力量增加事件" })
-    clickButton = Tabs.Main:AddButton({
-        Title = "点击+1力量 [已点 0 次]",
-        Callback = function()
-            addPower()
-        end
-    })
-
     Tabs.Main:AddParagraph({ Title = "门控制", Content = "点击按钮永久删除对应的门。" })
     Tabs.Main:AddButton({ Title = "删除 VIP", Callback = function() deleteDoor("VIP/VIPDoor") end })
     Tabs.Main:AddButton({ Title = "删除订阅", Callback = function() deleteDoor("Subscription/SubscriptionDoor") end })
-
     Tabs.Main:AddParagraph({ Title = "传送", Content = "点击下方世界名称即可传送。" })
     local teleportList = {
         { Name = "🌍 地球", Path = "Teleporters/Locations/World1" },
@@ -354,10 +347,8 @@ QQ:53662370
     for _, world in ipairs(teleportList) do
         Tabs.Main:AddButton({ Title = world.Name, Callback = function() teleportTo(world.Path) end })
     end
-
     Tabs.Main:AddParagraph({ Title = "自动健身", Content = "发送 AutoDamage true/false" })
     fitnessButton = Tabs.Main:AddButton({ Title = "自动健身：关", Callback = function() toggleFitness() end })
-
     Tabs.Main:AddParagraph({ Title = "自动健身2.0", Content = "飞天 + AutoDamage，关闭回原地" })
     fly2Button = Tabs.Main:AddButton({ Title = "健身2.0：关", Callback = function() toggleFly2() end })
 
@@ -372,8 +363,9 @@ QQ:53662370
         Rounding = 0,
         Callback = function(value) onSpeedSliderChange(value) end
     })
+    Tabs.Other:AddParagraph({ Title = "随机传送", Content = "传送到地图中心附近 ±200 范围" })
+    Tabs.Other:AddButton({ Title = "随机传送", Callback = randomTeleport })
 
-    -- Addons
     SaveManager:SetLibrary(Fluent)
     InterfaceManager:SetLibrary(Fluent)
     SaveManager:IgnoreThemeSettings()
@@ -382,21 +374,15 @@ QQ:53662370
     SaveManager:SetFolder("FluentScriptHub/specific-game")
     InterfaceManager:BuildInterfaceSection(Tabs.Settings)
     SaveManager:BuildConfigSection(Tabs.Settings)
-
     Window:SelectTab(1)
-
-    Fluent:Notify({
-        Title = "点击+1力量",
-        Content = "脚本已就绪",
-        Duration = 8
-    })
-
+    Fluent:Notify({ Title = "点击+1力量", Content = "脚本已就绪", Duration = 8 })
     SaveManager:LoadAutoloadConfig()
+end
 
 -- =====================
--- 游戏2 全部功能
+-- 游戏2：造船寻宝（你提供的最终正确版本）
 -- =====================
-elseif isGame2 then
+if isGame2 then
     local Tabs = {
         Main = Window:AddTab({ Title = "控制", Icon = "" }),
         Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
@@ -433,15 +419,11 @@ elseif isGame2 then
         table.insert(points, Vector3.new(p.X, p.Y + HEIGHT_OFFSET, p.Z))
     end
 
-    local isRunning = false
-    local mainTask = nil
+    local isRunning, mainTask = false, nil
 
     local function stopAll()
         isRunning = false
-        if mainTask then
-            task.cancel(mainTask)
-            mainTask = nil
-        end
+        if mainTask then task.cancel(mainTask); mainTask = nil end
         Fluent:Notify({ Title = "循环", Content = "已停止", Duration = 2 })
     end
 
@@ -456,15 +438,15 @@ elseif isGame2 then
             if not hrp then return end
 
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
 
             local first = points[1]
             local dist = (first - hrp.Position).Magnitude
             if dist > 0.5 then
-                TweenService:Create(hrp, TweenInfo.new(dist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(first)}):Play().Completed:Wait()
+                local tween = TweenService:Create(hrp, TweenInfo.new(dist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(first)})
+                tween:Play()
+                tween.Completed:Wait()
             else
                 hrp.CFrame = CFrame.new(first)
             end
@@ -494,7 +476,9 @@ elseif isGame2 then
                     local firstPoint = points[1]
                     local flyDist = (firstPoint - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or firstPoint).Position).Magnitude
                     if flyDist > 0.5 then
-                        TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(firstPoint)}):Play().Completed:Wait()
+                        local tween = TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(firstPoint)})
+                        tween:Play()
+                        tween.Completed:Wait()
                     elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         player.Character.HumanoidRootPart.CFrame = CFrame.new(firstPoint)
                     end
@@ -503,7 +487,9 @@ elseif isGame2 then
                     local nextTarget = points[index + 1]
                     local flyDist = (nextTarget - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nextTarget).Position).Magnitude
                     if flyDist > 0.5 then
-                        TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(nextTarget)}):Play().Completed:Wait()
+                        local tween = TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(nextTarget)})
+                        tween:Play()
+                        tween.Completed:Wait()
                     elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         player.Character.HumanoidRootPart.CFrame = CFrame.new(nextTarget)
                     end
@@ -514,7 +500,10 @@ elseif isGame2 then
         end)
     end
 
-    Tabs.Main:AddParagraph({ Title = "流程说明", Content = "1. 从出生点平飞至第一个坐标\n2. 循环传送保持 "..HOLD_DURATION.." 秒\n3. 平飞至下一个点\n4. 最后一点额外停留 "..FINAL_PAUSE.." 秒\n5. 飞回起点重新循环" })
+    Tabs.Main:AddParagraph({
+        Title = "流程说明",
+        Content = "1. 从出生点平飞至第一个坐标\n2. 循环传送保持 "..HOLD_DURATION.." 秒\n3. 平飞至下一个点\n4. 最后一点额外停留 "..FINAL_PAUSE.." 秒\n5. 飞回起点重新循环"
+    })
 
     local btn = Tabs.Main:AddButton({
         Title = "开始循环",
@@ -532,5 +521,192 @@ elseif isGame2 then
     InterfaceManager:BuildInterfaceSection(Tabs.Settings)
     SaveManager:BuildConfigSection(Tabs.Settings)
     Window:SelectTab(1)
-    Fluent:Notify({ Title = "就绪", Content = "点击【开始循环】启动", Duration = 5 })
+    Fluent:Notify({ Title = "造船寻宝", Content = "点击【开始循环】启动", Duration = 5 })
+end
+
+-- =====================
+-- 游戏3：吃吃世界
+-- =====================
+if isGame3 then
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+
+    local Tabs = {
+        Main = Window:AddTab({ Title = "功能", Icon = "" }),
+        Other = Window:AddTab({ Title = "其他", Icon = "" }),
+        Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
+    }
+
+    local function getRandomPosition()
+        local x = math.random(-20000, 20000) / 100
+        local z = math.random(-20000, 20000) / 100
+        return Vector3.new(x, 50, z)
+    end
+
+    local teleportLoop, teleportActive, teleportButton = nil, false, nil
+    local function startTeleport()
+        if teleportLoop then task.cancel(teleportLoop) end
+        teleportLoop = task.spawn(function()
+            while true do
+                local char = player.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.CFrame = CFrame.new(getRandomPosition())
+                end
+                task.wait(3)
+            end
+        end)
+    end
+    local function stopTeleport()
+        if teleportLoop then task.cancel(teleportLoop); teleportLoop = nil end
+    end
+    local function toggleTeleport()
+        teleportActive = not teleportActive
+        if teleportActive then startTeleport(); if teleportButton then teleportButton:SetTitle("自动传送：开") end
+            Fluent:Notify({ Title = "自动传送", Content = "已开启", Duration = 2 })
+        else stopTeleport(); if teleportButton then teleportButton:SetTitle("自动传送：关") end
+            Fluent:Notify({ Title = "自动传送", Content = "已关闭", Duration = 2 })
+        end
+    end
+
+    local grabLoop, grabActive, grabButton = nil, false, nil
+    local function startGrab()
+        if grabLoop then task.cancel(grabLoop) end
+        grabLoop = task.spawn(function()
+            while true do
+                local char = player.Character
+                if char then
+                    local events = char:FindFirstChild("Events")
+                    if events then
+                        local grab = events:FindFirstChild("Grab")
+                        if grab then pcall(function() grab:FireServer(false, false, false) end) end
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+    end
+    local function stopGrab()
+        if grabLoop then task.cancel(grabLoop); grabLoop = nil end
+    end
+    local function toggleGrab()
+        grabActive = not grabActive
+        if grabActive then startGrab(); if grabButton then grabButton:SetTitle("自动拿：开") end
+            Fluent:Notify({ Title = "自动拿", Content = "已开启", Duration = 2 })
+        else stopGrab(); if grabButton then grabButton:SetTitle("自动拿：关") end
+            Fluent:Notify({ Title = "自动拿", Content = "已关闭", Duration = 2 })
+        end
+    end
+
+    local eatLoop, eatActive, eatButton = nil, false, nil
+    local function startEat()
+        if eatLoop then task.cancel(eatLoop) end
+        eatLoop = task.spawn(function()
+            while true do
+                local char = player.Character
+                if char then
+                    local events = char:FindFirstChild("Events")
+                    if events then
+                        local eat = events:FindFirstChild("Eat")
+                        if eat then pcall(function() eat:FireServer() end) end
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+    end
+    local function stopEat()
+        if eatLoop then task.cancel(eatLoop); eatLoop = nil end
+    end
+    local function toggleEat()
+        eatActive = not eatActive
+        if eatActive then startEat(); if eatButton then eatButton:SetTitle("自动吃：开") end
+            Fluent:Notify({ Title = "自动吃", Content = "已开启", Duration = 2 })
+        else stopEat(); if eatButton then eatButton:SetTitle("自动吃：关") end
+            Fluent:Notify({ Title = "自动吃", Content = "已关闭", Duration = 2 })
+        end
+    end
+
+    local antiVoidActive, antiVoidPart, antiVoidButton = false, nil, nil
+    local PLATFORM_SIZE = Vector3.new(1000, 1, 1000)
+    local PLATFORM_HEIGHT = 5
+    local PLATFORM_TRANSPARENCY = 1
+    local function createPlatform()
+        if antiVoidPart then antiVoidPart:Destroy() end
+        local part = Instance.new("Part")
+        part.Name = "AntiVoidPlatform"
+        part.Size = PLATFORM_SIZE
+        part.Anchored = true
+        part.CanCollide = true
+        part.Transparency = PLATFORM_TRANSPARENCY
+        part.Position = Vector3.new(0, PLATFORM_HEIGHT, 0)
+        part.Parent = workspace
+        antiVoidPart = part
+    end
+    local function removePlatform()
+        if antiVoidPart then antiVoidPart:Destroy(); antiVoidPart = nil end
+    end
+    local function toggleAntiVoid()
+        antiVoidActive = not antiVoidActive
+        if antiVoidActive then createPlatform(); if antiVoidButton then antiVoidButton:SetTitle("反虚空：开") end
+            Fluent:Notify({ Title = "反虚空", Content = "已开启", Duration = 2 })
+        else removePlatform(); if antiVoidButton then antiVoidButton:SetTitle("反虚空：关") end
+            Fluent:Notify({ Title = "反虚空", Content = "已关闭", Duration = 2 })
+        end
+    end
+    Players.PlayerRemoving:Connect(removePlatform)
+
+    local speedEnabled, speedValue, speedLoop, speedButton = false, 16, nil, nil
+    local function applySpeed(val)
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = val end
+    end
+    local function startSpeedLoop()
+        if speedLoop then task.cancel(speedLoop) end
+        speedLoop = task.spawn(function()
+            while true do applySpeed(speedValue); task.wait(0.2) end
+        end)
+    end
+    local function stopSpeedLoop()
+        if speedLoop then task.cancel(speedLoop); speedLoop = nil end
+        applySpeed(16)
+    end
+    player.CharacterAdded:Connect(function()
+        if speedEnabled then startSpeedLoop() else applySpeed(16) end
+    end)
+    local function toggleSpeed()
+        speedEnabled = not speedEnabled
+        if speedEnabled then startSpeedLoop(); if speedButton then speedButton:SetTitle("速度修改：开") end
+            Fluent:Notify({ Title = "速度修改", Content = "已开启", Duration = 2 })
+        else stopSpeedLoop(); if speedButton then speedButton:SetTitle("速度修改：关") end
+            Fluent:Notify({ Title = "速度修改", Content = "已关闭", Duration = 2 })
+        end
+    end
+    local function onSpeedSliderChange(value) speedValue = value end
+
+    Tabs.Main:AddParagraph({ Title = "自动传送", Content = "每3秒随机传送一次（范围±200）" })
+    teleportButton = Tabs.Main:AddButton({ Title = "自动传送：关", Callback = toggleTeleport })
+    Tabs.Main:AddParagraph({ Title = "自动拿", Content = "每0.5秒触发 Grab 事件" })
+    grabButton = Tabs.Main:AddButton({ Title = "自动拿：关", Callback = toggleGrab })
+    Tabs.Main:AddParagraph({ Title = "自动吃", Content = "每0.5秒触发 Eat 事件" })
+    eatButton = Tabs.Main:AddButton({ Title = "自动吃：关", Callback = toggleEat })
+    Tabs.Main:AddParagraph({ Title = "反虚空", Content = "1000×1×1000透明平台" })
+    antiVoidButton = Tabs.Main:AddButton({ Title = "反虚空：关", Callback = toggleAntiVoid })
+
+    Tabs.Other:AddParagraph({ Title = "速度修改", Content = "点击按钮开启/关闭" })
+    speedButton = Tabs.Other:AddButton({ Title = "速度修改：关", Callback = toggleSpeed })
+    Tabs.Other:AddSlider("SpeedSlider", {
+        Title = "移动速度", Description = "0 ~ 400", Default = 16, Min = 0, Max = 400, Rounding = 0,
+        Callback = function(value) onSpeedSliderChange(value) end
+    })
+
+    SaveManager:SetLibrary(Fluent)
+    InterfaceManager:SetLibrary(Fluent)
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({})
+    InterfaceManager:SetFolder("FluentScriptHub")
+    SaveManager:SetFolder("FluentScriptHub/specific-game")
+    InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+    SaveManager:BuildConfigSection(Tabs.Settings)
+    Window:SelectTab(1)
+    Fluent:Notify({ Title = "吃吃世界", Content = "全部就绪", Duration = 5 })
 end
