@@ -1,226 +1,536 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/mspktz9hzb-hub/bababa-/refs/heads/main/%E8%84%9A%E6%9C%AC%E8%84%9A%E6%9C%AC"))()
-
--- Fluent UI 库
+-- 公共 Fluent 库
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- 如果是游戏1，直接静默退出
-if game.GameId == 6756738846 and game.PlaceId == 77261596213273 then
-    return
-end
+-- 游戏 ID 判断
+local gameId = game.GameId
+local placeId = game.PlaceId
+local isGame1 = (gameId == 6756738846 and placeId == 77261596213273)
+local isGame2 = (gameId == 210851291 and placeId == 537413528)
 
--- 游戏2 检测
-local targetGameId = 210851291
-local targetPlaceId = 537413528
-
-if game.GameId ~= targetGameId or game.PlaceId ~= targetPlaceId then
+-- 如果不是有效游戏则提示并退出
+if not isGame1 and not isGame2 then
     Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
     return
 end
 
--- 游戏2 支持提示
-Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（造船寻宝）", Duration = 3 })
-
--- =====================
--- 🔧 全部参数（可自行调整）
--- =====================
-local HEIGHT_OFFSET = 20            -- 每个点向上抬高，防止卡地
-local FLY_SPEED = 200               -- 平飞速度 (studs/秒)
-local HOLD_DURATION = 3             -- 在每个点循环传送保持的总秒数
-local TELEPORT_INTERVAL = 0.01      -- 循环传送的间隔（0.01秒≈无冷却）
-local FINAL_PAUSE = 12              -- 最后一点的额外停留秒数
-
--- =====================
--- 路径点（你提供的13个坐标）
--- =====================
-local rawPoints = {
-    Vector3.new(-60.5, 17.8, 1614.2),
-    Vector3.new(-60.5, 15.0, 2538.7),
-    Vector3.new(-51.8, 24.4, 3322.7),
-    Vector3.new(-51.9, 49.4, 3996.9),
-    Vector3.new(-49.7, 36.6, 4677.6),
-    Vector3.new(-61.6, 27.3, 5466.0),
-    Vector3.new(-53.8, 24.6, 6338.0),
-    Vector3.new(-53.0, 20.8, 7084.4),
-    Vector3.new(-76.3, 22.4, 7985.0),
-    Vector3.new(-68.1, 28.2, 8620.0),
-    Vector3.new(-62.1, -337.0, 8701.2),
-    Vector3.new(-54.3, -358.0, 9401.7),
-    Vector3.new(-55.8, -380.2, 9489.8)
-}
-
--- 生成实际飞行点（抬高后）
-local points = {}
-for _, p in ipairs(rawPoints) do
-    table.insert(points, Vector3.new(p.X, p.Y + HEIGHT_OFFSET, p.Z))
+-- 提示支持
+if isGame1 then
+    Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（点击+1力量）", Duration = 3 })
+else
+    Fluent:Notify({ Title = "检测通过", Content = "✅ 支持当前游戏（造船寻宝）", Duration = 3 })
 end
 
--- 服务
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
+-- 创建窗口（根据游戏不同外观）
+local Window
+if isGame1 then
+    Window = Fluent:CreateWindow({
+        Title = "点击+1力量",
+        SubTitle = "",
+        TabWidth = 160,
+        Size = UDim2.fromOffset(580, 640),
+        Acrylic = true,
+        Theme = "Dark",
+        MinimizeKey = Enum.KeyCode.LeftControl
+    })
+else
+    Window = Fluent:CreateWindow({
+        Title = "造船寻宝",
+        SubTitle = "循环平飞系统",
+        TabWidth = 160,
+        Size = UDim2.fromOffset(480, 280),
+        Acrylic = true,
+        Theme = "Dark",
+        MinimizeKey = Enum.KeyCode.LeftControl
+    })
+end
 
--- 控制
-local isRunning = false
-local mainTask = nil
+-- =====================
+-- 游戏1 全部功能
+-- =====================
+if isGame1 then
+    local Tabs = {
+        Main = Window:AddTab({ Title = "主页", Icon = "" }),
+        Other = Window:AddTab({ Title = "其他", Icon = "" }),
+        Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
+    }
 
-local function stopAll()
-    isRunning = false
-    if mainTask then
-        task.cancel(mainTask)
-        mainTask = nil
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+
+    -- 公告
+    local ANNOUNCEMENT = [[
+欢迎使用多功能脚本！
+新功能：删门/传送/速度/自动健身/飞天
+以后会开发很多的现在是测试版
+QQ:53662370
+没有微信
+]]
+
+    -- 删除门
+    local function deleteDoor(partialPath)
+        local parts = {}
+        for part in string.gmatch(partialPath, "[^/]+") do table.insert(parts, part) end
+        local current = workspace
+        for _, name in ipairs(parts) do
+            current = current:FindFirstChild(name)
+            if not current then
+                Fluent:Notify({ Title = "错误", Content = "目标不存在", Duration = 3 })
+                return
+            end
+        end
+        current:Destroy()
+        Fluent:Notify({ Title = "完成", Content = "已删除", Duration = 3 })
     end
-    Fluent:Notify({ Title = "循环", Content = "已停止", Duration = 2 })
-end
 
--- 主逻辑
-local function startCycle()
-    stopAll()
-    isRunning = true
-    Fluent:Notify({ Title = "开始", Content = "平飞至第一个点，然后循环传送保持", Duration = 3 })
-
-    mainTask = task.spawn(function()
+    -- 传送
+    local function teleportTo(path)
+        local parts = {}
+        for part in string.gmatch(path, "[^/]+") do table.insert(parts, part) end
+        local current = workspace
+        for _, name in ipairs(parts) do
+            current = current:FindFirstChild(name)
+            if not current then
+                Fluent:Notify({ Title = "传送失败", Content = "找不到传送点", Duration = 3 })
+                return
+            end
+        end
         local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-
-        -- 关闭碰撞
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-
-        -- 当前所在位置（出生点）到第一个点的平飞
-        local first = points[1]
-        local dist = (first - hrp.Position).Magnitude
-        if dist > 0.5 then
-            local tween = TweenService:Create(
-                hrp,
-                TweenInfo.new(dist / FLY_SPEED, Enum.EasingStyle.Linear),
-                { CFrame = CFrame.new(first) }
-            )
-            tween:Play()
-            tween.Completed:Wait()
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = current.CFrame + Vector3.new(0, 5, 0)
         else
-            hrp.CFrame = CFrame.new(first)
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 3 })
         end
+    end
 
-        -- 从第一个点开始循环
-        local index = 1
-        while isRunning do
-            local currentTarget = points[index]
+    -- 头顶名字头像
+    local function createNameTag(character)
+        local targetPlayer = Players:GetPlayerFromCharacter(character)
+        if not targetPlayer or targetPlayer == player then return end
+        local head = character:WaitForChild("Head", 5)
+        if not head then return end
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "PlayerNameAvatar"
+        billboard.AlwaysOnTop = true
+        billboard.Size = UDim2.new(0, 150, 0, 60)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.Parent = head
+        local avatarFrame = Instance.new("ImageLabel")
+        avatarFrame.Size = UDim2.new(0, 40, 0, 40)
+        avatarFrame.Position = UDim2.new(0, 0, 0.5, -20)
+        avatarFrame.BackgroundTransparency = 1
+        avatarFrame.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. targetPlayer.UserId .. "&width=420&height=420&format=png"
+        avatarFrame.Parent = billboard
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(0, 100, 1, 0)
+        nameLabel.Position = UDim2.new(0, 45, 0, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = targetPlayer.Name
+        nameLabel.TextColor3 = Color3.new(1, 1, 1)
+        nameLabel.TextScaled = true
+        nameLabel.Font = Enum.Font.GothamBlack
+        nameLabel.Parent = billboard
+    end
 
-            -- 🔁 无限循环传送（无冷却）保持 HOLD_DURATION 秒
-            local startTime = tick()
-            while tick() - startTime < HOLD_DURATION and isRunning do
-                local curChar = player.Character
-                local curHrp = curChar and curChar:FindFirstChild("HumanoidRootPart")
-                if curHrp then
-                    curHrp.CFrame = CFrame.new(currentTarget)
-                    curHrp.AssemblyLinearVelocity = Vector3.zero
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if plr.Character then task.spawn(createNameTag, plr.Character) end
+            plr.CharacterAdded:Connect(createNameTag)
+        end
+    end
+    Players.PlayerAdded:Connect(function(plr)
+        plr.CharacterAdded:Connect(function(char)
+            if plr ~= player then createNameTag(char) end
+        end)
+    end)
+
+    -- 速度修改（循环保持）
+    local speedEnabled = false
+    local speedValue = 16
+    local speedButton = nil
+    local speedLoop = nil
+
+    local function applySpeed(val)
+        local char = player.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then humanoid.WalkSpeed = val end
+        end
+    end
+
+    local function startSpeedLoop()
+        if speedLoop then task.cancel(speedLoop); speedLoop = nil end
+        speedLoop = task.spawn(function()
+            while true do
+                applySpeed(speedValue)
+                task.wait(0.2)
+            end
+        end)
+    end
+
+    local function stopSpeedLoop()
+        if speedLoop then
+            task.cancel(speedLoop)
+            speedLoop = nil
+        end
+        applySpeed(16)
+    end
+
+    player.CharacterAdded:Connect(function()
+        if speedEnabled then startSpeedLoop() else applySpeed(16) end
+    end)
+
+    local function toggleSpeed()
+        speedEnabled = not speedEnabled
+        if speedEnabled then
+            startSpeedLoop()
+            if speedButton then speedButton:SetTitle("速度修改：开") end
+            Fluent:Notify({ Title = "速度修改", Content = "已开启（循环保持）", Duration = 2 })
+        else
+            stopSpeedLoop()
+            if speedButton then speedButton:SetTitle("速度修改：关") end
+            Fluent:Notify({ Title = "速度修改", Content = "已关闭，恢复默认速度", Duration = 2 })
+        end
+    end
+
+    local function onSpeedSliderChange(value)
+        speedValue = value
+    end
+
+    -- 新增：点击+1力量
+    local clickCount = 0
+    local clickButton = nil
+
+    local function addPower()
+        local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+        if not AutoDamage then
+            Fluent:Notify({ Title = "错误", Content = "AutoDamage 事件不存在", Duration = 3 })
+            return
+        end
+        pcall(function()
+            AutoDamage:FireServer(true)
+        end)
+        clickCount = clickCount + 1
+        if clickButton then
+            clickButton:SetTitle("点击+1力量 [已点 " .. clickCount .. " 次]")
+        end
+    end
+
+    -- 自动健身（原版）
+    local fitnessLoop = nil
+    local fitnessState = false
+    local fitnessButton = nil
+
+    local function startFitnessLoop(sendValue)
+        if fitnessLoop then task.cancel(fitnessLoop); fitnessLoop = nil end
+        local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+        if not AutoDamage then
+            Fluent:Notify({ Title = "错误", Content = "请在支持的游戏上开启", Duration = 3 })
+            return
+        end
+        fitnessLoop = task.spawn(function()
+            while true do
+                pcall(function() AutoDamage:FireServer(sendValue) end)
+                task.wait(0.5)
+            end
+        end)
+        if fitnessButton then fitnessButton:SetTitle(sendValue and "自动健身：开" or "自动健身：关") end
+    end
+
+    local function toggleFitness()
+        if fitnessState then
+            fitnessState = false
+            startFitnessLoop(false)
+            Fluent:Notify({ Title = "自动健身", Content = "已切换为关", Duration = 2 })
+        else
+            fitnessState = true
+            startFitnessLoop(true)
+            Fluent:Notify({ Title = "自动健身", Content = "已切换为开", Duration = 2 })
+        end
+    end
+
+    -- 自动健身2.0
+    local fly2Loop = nil
+    local fly2State = false
+    local fly2Button = nil
+    local FLY2_HEIGHT = 150
+    local originalCFrame = nil
+
+    local function startFly2()
+        if fly2Loop then task.cancel(fly2Loop); fly2Loop = nil end
+        local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+        if not AutoDamage then
+            Fluent:Notify({ Title = "错误", Content = "请在支持的游戏上开启", Duration = 3 })
+            return
+        end
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            originalCFrame = char.HumanoidRootPart.CFrame
+        end
+        fly2Loop = task.spawn(function()
+            while true do
+                pcall(function() AutoDamage:FireServer(true) end)
+                pcall(function()
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        local hrp = char.HumanoidRootPart
+                        hrp.CFrame = CFrame.new(Vector3.new(hrp.Position.X, FLY2_HEIGHT, hrp.Position.Z))
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                    end
+                end)
+                task.wait(0.05)
+            end
+        end)
+        if fly2Button then fly2Button:SetTitle("健身2.0：开") end
+    end
+
+    local function stopFly2()
+        if fly2Loop then
+            task.cancel(fly2Loop)
+            fly2Loop = nil
+        end
+        pcall(function()
+            local AutoDamage = game:GetService("ReplicatedStorage"):WaitForChild("AutoDamage", 5)
+            if AutoDamage then AutoDamage:FireServer(false) end
+        end)
+        if originalCFrame then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = originalCFrame
+                originalCFrame = nil
+            end
+        end
+        if fly2Button then fly2Button:SetTitle("健身2.0：关") end
+    end
+
+    local function toggleFly2()
+        if fly2State then
+            fly2State = false
+            stopFly2()
+            Fluent:Notify({ Title = "健身2.0", Content = "已关闭，传送回原地", Duration = 2 })
+        else
+            fly2State = true
+            startFly2()
+            Fluent:Notify({ Title = "健身2.0", Content = "已开启，飞天+AutoDamage", Duration = 2 })
+        end
+    end
+
+    -- 填充 UI
+    Fluent:Notify({ Title = "通知", Content = "脚本已加载", Duration = 5 })
+
+    Tabs.Main:AddParagraph({ Title = "📢 公告", Content = ANNOUNCEMENT })
+
+    -- 点击+1力量按钮
+    Tabs.Main:AddParagraph({ Title = "力量", Content = "每点击一次按钮，触发一次力量增加事件" })
+    clickButton = Tabs.Main:AddButton({
+        Title = "点击+1力量 [已点 0 次]",
+        Callback = function()
+            addPower()
+        end
+    })
+
+    Tabs.Main:AddParagraph({ Title = "门控制", Content = "点击按钮永久删除对应的门。" })
+    Tabs.Main:AddButton({ Title = "删除 VIP", Callback = function() deleteDoor("VIP/VIPDoor") end })
+    Tabs.Main:AddButton({ Title = "删除订阅", Callback = function() deleteDoor("Subscription/SubscriptionDoor") end })
+
+    Tabs.Main:AddParagraph({ Title = "传送", Content = "点击下方世界名称即可传送。" })
+    local teleportList = {
+        { Name = "🌍 地球", Path = "Teleporters/Locations/World1" },
+        { Name = "🌕 月球", Path = "Teleporters/Locations/World2" },
+        { Name = "🌋 熔岩", Path = "Teleporters/Locations/World3" },
+        { Name = "❄️ 冰", Path = "Teleporters/Locations/World4" },
+        { Name = "🌸 花朵", Path = "Teleporters/Locations/World5" },
+        { Name = "⛄ 雪", Path = "Teleporters/Locations/World6" },
+        { Name = "🌑 黑暗", Path = "Teleporters/Locations/World7" },
+        { Name = "🕳️ 虚空", Path = "Teleporters/Locations/World8" },
+        { Name = "🏜️ 沙漠", Path = "Teleporters/Locations/World9" },
+        { Name = "🌳 森林", Path = "Teleporters/Locations/World10" },
+        { Name = "🍬 糖果", Path = "Teleporters/Locations/World11" },
+        { Name = "⚙️ 蒸汽朋克", Path = "Teleporters/Locations/World12" },
+        { Name = "🏖️ 海滩", Path = "Teleporters/Locations/World13" },
+        { Name = "☁️ 天堂", Path = "Teleporters/Locations/World14" },
+    }
+    for _, world in ipairs(teleportList) do
+        Tabs.Main:AddButton({ Title = world.Name, Callback = function() teleportTo(world.Path) end })
+    end
+
+    Tabs.Main:AddParagraph({ Title = "自动健身", Content = "发送 AutoDamage true/false" })
+    fitnessButton = Tabs.Main:AddButton({ Title = "自动健身：关", Callback = function() toggleFitness() end })
+
+    Tabs.Main:AddParagraph({ Title = "自动健身2.0", Content = "飞天 + AutoDamage，关闭回原地" })
+    fly2Button = Tabs.Main:AddButton({ Title = "健身2.0：关", Callback = function() toggleFly2() end })
+
+    Tabs.Other:AddParagraph({ Title = "速度修改", Content = "点击按钮开启/关闭速度调整（循环保持）" })
+    speedButton = Tabs.Other:AddButton({ Title = "速度修改：关", Callback = function() toggleSpeed() end })
+    Tabs.Other:AddSlider("SpeedSlider", {
+        Title = "移动速度",
+        Description = "0 ~ 400",
+        Default = 16,
+        Min = 0,
+        Max = 400,
+        Rounding = 0,
+        Callback = function(value) onSpeedSliderChange(value) end
+    })
+
+    -- Addons
+    SaveManager:SetLibrary(Fluent)
+    InterfaceManager:SetLibrary(Fluent)
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({})
+    InterfaceManager:SetFolder("FluentScriptHub")
+    SaveManager:SetFolder("FluentScriptHub/specific-game")
+    InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+    SaveManager:BuildConfigSection(Tabs.Settings)
+
+    Window:SelectTab(1)
+
+    Fluent:Notify({
+        Title = "点击+1力量",
+        Content = "脚本已就绪",
+        Duration = 8
+    })
+
+    SaveManager:LoadAutoloadConfig()
+
+-- =====================
+-- 游戏2 全部功能
+-- =====================
+elseif isGame2 then
+    local Tabs = {
+        Main = Window:AddTab({ Title = "控制", Icon = "" }),
+        Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
+    }
+
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local player = Players.LocalPlayer
+
+    local HEIGHT_OFFSET = 20
+    local FLY_SPEED = 200
+    local HOLD_DURATION = 3
+    local TELEPORT_INTERVAL = 0.01
+    local FINAL_PAUSE = 12
+
+    local rawPoints = {
+        Vector3.new(-60.5, 17.8, 1614.2),
+        Vector3.new(-60.5, 15.0, 2538.7),
+        Vector3.new(-51.8, 24.4, 3322.7),
+        Vector3.new(-51.9, 49.4, 3996.9),
+        Vector3.new(-49.7, 36.6, 4677.6),
+        Vector3.new(-61.6, 27.3, 5466.0),
+        Vector3.new(-53.8, 24.6, 6338.0),
+        Vector3.new(-53.0, 20.8, 7084.4),
+        Vector3.new(-76.3, 22.4, 7985.0),
+        Vector3.new(-68.1, 28.2, 8620.0),
+        Vector3.new(-62.1, -337.0, 8701.2),
+        Vector3.new(-54.3, -358.0, 9401.7),
+        Vector3.new(-55.8, -380.2, 9489.8)
+    }
+
+    local points = {}
+    for _, p in ipairs(rawPoints) do
+        table.insert(points, Vector3.new(p.X, p.Y + HEIGHT_OFFSET, p.Z))
+    end
+
+    local isRunning = false
+    local mainTask = nil
+
+    local function stopAll()
+        isRunning = false
+        if mainTask then
+            task.cancel(mainTask)
+            mainTask = nil
+        end
+        Fluent:Notify({ Title = "循环", Content = "已停止", Duration = 2 })
+    end
+
+    local function startCycle()
+        stopAll()
+        isRunning = true
+        Fluent:Notify({ Title = "开始", Content = "平飞至第一个点，然后循环传送保持", Duration = 3 })
+
+        mainTask = task.spawn(function()
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
                 end
-                task.wait(TELEPORT_INTERVAL)
             end
 
-            if not isRunning then break end
+            local first = points[1]
+            local dist = (first - hrp.Position).Magnitude
+            if dist > 0.5 then
+                TweenService:Create(hrp, TweenInfo.new(dist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(first)}):Play().Completed:Wait()
+            else
+                hrp.CFrame = CFrame.new(first)
+            end
 
-            -- 🎯 如果是最后一个点：额外停留 FINAL_PAUSE 秒，然后飞回第一个点
-            if index == #points then
-                Fluent:Notify({ Title = "最后一点", Content = "额外停留 "..FINAL_PAUSE.." 秒", Duration = 2 })
-                local pauseStart = tick()
-                while tick() - pauseStart < FINAL_PAUSE and isRunning do
-                    task.wait(0.1)
+            local index = 1
+            while isRunning do
+                local currentTarget = points[index]
+                local startTime = tick()
+                while tick() - startTime < HOLD_DURATION and isRunning do
+                    local curChar = player.Character
+                    local curHrp = curChar and curChar:FindFirstChild("HumanoidRootPart")
+                    if curHrp then
+                        curHrp.CFrame = CFrame.new(currentTarget)
+                        curHrp.AssemblyLinearVelocity = Vector3.zero
+                    end
+                    task.wait(TELEPORT_INTERVAL)
                 end
+
                 if not isRunning then break end
 
-                -- 飞回第一个点
-                local firstPoint = points[1]
-                local flyDist = (firstPoint - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or firstPoint).Position).Magnitude
-                if flyDist > 0.5 then
-                    local tween = TweenService:Create(
-                        player.Character.HumanoidRootPart,
-                        TweenInfo.new(flyDist / FLY_SPEED, Enum.EasingStyle.Linear),
-                        { CFrame = CFrame.new(firstPoint) }
-                    )
-                    tween:Play()
-                    tween.Completed:Wait()
-                else
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if index == #points then
+                    Fluent:Notify({ Title = "最后一点", Content = "额外停留 "..FINAL_PAUSE.." 秒", Duration = 2 })
+                    local pauseStart = tick()
+                    while tick() - pauseStart < FINAL_PAUSE and isRunning do task.wait(0.1) end
+                    if not isRunning then break end
+
+                    local firstPoint = points[1]
+                    local flyDist = (firstPoint - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or firstPoint).Position).Magnitude
+                    if flyDist > 0.5 then
+                        TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(firstPoint)}):Play().Completed:Wait()
+                    elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         player.Character.HumanoidRootPart.CFrame = CFrame.new(firstPoint)
                     end
-                end
-                index = 1
-            else
-                -- 🚀 飞向下一个点
-                local nextTarget = points[index + 1]
-                local flyDist = (nextTarget - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nextTarget).Position).Magnitude
-                if flyDist > 0.5 then
-                    local tween = TweenService:Create(
-                        player.Character.HumanoidRootPart,
-                        TweenInfo.new(flyDist / FLY_SPEED, Enum.EasingStyle.Linear),
-                        { CFrame = CFrame.new(nextTarget) }
-                    )
-                    tween:Play()
-                    tween.Completed:Wait()
+                    index = 1
                 else
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local nextTarget = points[index + 1]
+                    local flyDist = (nextTarget - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") or nextTarget).Position).Magnitude
+                    if flyDist > 0.5 then
+                        TweenService:Create(player.Character.HumanoidRootPart, TweenInfo.new(flyDist/FLY_SPEED, Enum.EasingStyle.Linear), {CFrame = CFrame.new(nextTarget)}):Play().Completed:Wait()
+                    elseif player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         player.Character.HumanoidRootPart.CFrame = CFrame.new(nextTarget)
                     end
+                    if not isRunning then break end
+                    index = index + 1
                 end
-                if not isRunning then break end
-                index = index + 1
             end
-        end
-    end)
-end
-
--- =====================
--- UI 界面（标题仍为“造船寻宝”）
--- =====================
-local Window = Fluent:CreateWindow({
-    Title = "造船寻宝",
-    SubTitle = "循环平飞系统",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(480, 280),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl
-})
-
-local Tabs = {
-    Main = Window:AddTab({ Title = "控制", Icon = "" }),
-    Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
-}
-
-Tabs.Main:AddParagraph({
-    Title = "流程说明",
-    Content = "1. 从出生点平飞至第一个坐标\n2. 循环传送保持 "..HOLD_DURATION.." 秒\n3. 平飞至下一个点\n4. 最后一点额外停留 "..FINAL_PAUSE.." 秒\n5. 飞回起点重新循环"
-})
-
-local btn = Tabs.Main:AddButton({
-    Title = "开始循环",
-    Callback = function()
-        if isRunning then
-            stopAll()
-            btn:SetTitle("开始循环")
-        else
-            startCycle()
-            btn:SetTitle("停止循环")
-        end
+        end)
     end
-})
 
--- Addons
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/specific-game")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
+    Tabs.Main:AddParagraph({ Title = "流程说明", Content = "1. 从出生点平飞至第一个坐标\n2. 循环传送保持 "..HOLD_DURATION.." 秒\n3. 平飞至下一个点\n4. 最后一点额外停留 "..FINAL_PAUSE.." 秒\n5. 飞回起点重新循环" })
 
-Window:SelectTab(1)
-Fluent:Notify({ Title = "就绪", Content = "点击【开始循环】启动", Duration = 5 })
+    local btn = Tabs.Main:AddButton({
+        Title = "开始循环",
+        Callback = function()
+            if isRunning then stopAll(); btn:SetTitle("开始循环") else startCycle(); btn:SetTitle("停止循环") end
+        end
+    })
+
+    SaveManager:SetLibrary(Fluent)
+    InterfaceManager:SetLibrary(Fluent)
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({})
+    InterfaceManager:SetFolder("FluentScriptHub")
+    SaveManager:SetFolder("FluentScriptHub/specific-game")
+    InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+    SaveManager:BuildConfigSection(Tabs.Settings)
+    Window:SelectTab(1)
+    Fluent:Notify({ Title = "就绪", Content = "点击【开始循环】启动", Duration = 5 })
+end
