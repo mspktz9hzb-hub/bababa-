@@ -1,8 +1,3 @@
--- 如果是游戏2，加载你提供的外部模块
-if game.GameId == 210851291 and game.PlaceId == 537413528 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/mspktz9hzb-hub/bababa-/102563b65effdd1076a47ca512f1b5cf3a523f55/%E8%84%9A%E6%9C%AC%E8%84%9A%E6%9C%AC", true))()
-end
-
 -- 公共 Fluent 库
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
