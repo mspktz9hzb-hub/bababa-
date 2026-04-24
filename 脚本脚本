@@ -7,7 +7,7 @@ local targetGameId = 6756738846
 local targetPlaceId = 77261596213273
 
 if game.GameId ~= targetGameId or game.PlaceId ~= targetPlaceId then
-    Fluent:Notify({ Title = "错误", Content = "不支持当前游戏", Duration = 5 })
+    Fluent:Notify({ Title = "错误", Content = "不支持当前游戏如果是别的支持的游戏的话你就不用管这个提示", Duration = 5 })
     return
 end
 
